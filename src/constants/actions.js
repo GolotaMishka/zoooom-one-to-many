@@ -7,6 +7,9 @@ const ACTIONS = {
     SEND_ICE_CANDIDATE_STUDENT_STREAM: 'send-ice-candidate-student-stream',
     SEND_ICE_CANDIDATE_STUDENT_SERVER_STREAM: 'send-ice-candidate-student-server-stream',
 
+    WATCH: 'watch',
+    ADD_WATCHER_PEER: 'add-watcher-peer',
+    
     JOIN: 'join',
     LEAVE: 'leave',
     SHARE_ROOMS: 'share-rooms',

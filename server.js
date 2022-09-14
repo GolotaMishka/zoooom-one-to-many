@@ -1,8 +1,5 @@
 const express = require('express');
 const path = require('path');
-const {version, validate} = require('uuid');
-const bodyParser = require('body-parser');
-// var cors = require('cors')
 const app = express();
 const http = require('http');
 const webrtc = require("wrtc");
@@ -16,114 +13,8 @@ const { RTCConfig } = require('./src/constants/rtc-config')
 
 let senderStream;
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-
-function getClientRooms() {
-  const {rooms} = io.sockets.adapter;
-
-  return Array.from(rooms.keys()).filter(roomID => validate(roomID) && version(roomID) === 4);
-}
-
-function shareRoomsInfo() {
-  io.emit(ACTIONS.SHARE_ROOMS, {
-    rooms: getClientRooms()
-  })
-}
-
 io.on('connection', socket => {
-  shareRoomsInfo();
-
-  socket.on(ACTIONS.JOIN, config => {
-    const {room: roomID} = config;
-    const {rooms: joinedRooms} = socket;
-
-    if (Array.from(joinedRooms).includes(roomID)) {
-      return console.warn(`Already joined to ${roomID}`);
-    }
-
-    const clients = Array.from(io.sockets.adapter.rooms.get(roomID) || []);
-
-    clients.forEach(clientID => {
-      io.to(clientID).emit(ACTIONS.ADD_PEER, {
-        peerID: socket.id,
-        createOffer: false
-      });
-
-      socket.emit(ACTIONS.ADD_PEER, {
-        peerID: clientID,
-        createOffer: true,
-      });
-    });
-
-    socket.join(roomID);
-    shareRoomsInfo();
-  });
-
-  function leaveRoom() {
-    const {rooms} = socket;
-
-    Array.from(rooms)
-      // LEAVE ONLY CLIENT CREATED ROOM
-      .filter(roomID => validate(roomID) && version(roomID) === 4)
-      .forEach(roomID => {
-
-        const clients = Array.from(io.sockets.adapter.rooms.get(roomID) || []);
-
-        clients
-          .forEach(clientID => {
-          io.to(clientID).emit(ACTIONS.REMOVE_PEER, {
-            peerID: socket.id,
-          });
-
-          socket.emit(ACTIONS.REMOVE_PEER, {
-            peerID: clientID,
-          });
-        });
-
-        socket.leave(roomID);
-      });
-
-    shareRoomsInfo();
-  }
-
-  socket.on(ACTIONS.LEAVE, leaveRoom);
-  socket.on('disconnecting', leaveRoom);
-
-  socket.on(ACTIONS.RELAY_SDP, ({peerID, sessionDescription}) => {
-    io.to(peerID).emit(ACTIONS.SESSION_DESCRIPTION, {
-      peerID: socket.id,
-      sessionDescription,
-    });
-  });
-
-  socket.on(ACTIONS.RELAY_ICE, ({peerID, iceCandidate}) => {
-    io.to(peerID).emit(ACTIONS.ICE_CANDIDATE, {
-      peerID: socket.id,
-      iceCandidate,
-    });
-  });
-
-  // TODO: Rewrite with http
-  socket.on(ACTIONS.BROADCAST, async ({room, sdp}) => {
-    const peer = new webrtc.RTCPeerConnection(RTCConfig);
-    peer.ontrack = (e) => {
-        senderStream = e.streams[0];
-    };
-
-    const remoteDescription = new webrtc.RTCSessionDescription(sdp);
-    await peer.setRemoteDescription(remoteDescription);
-
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
-    const payload = {
-        sdp: peer.localDescription
-    }
-
-    socket.emit(ACTIONS.ADD_BROADCASTER_PEER, payload);
-  });
-
-  app.post('/broadcast', async ({ body }, res) => {
+  socket.on(ACTIONS.BROADCAST, async ({sdp}) => {
     const peer = new webrtc.RTCPeerConnection(RTCConfig);
     peer.ontrack = (e) => {
         senderStream = e.streams[0];
@@ -142,7 +33,7 @@ io.on('connection', socket => {
       );
     })
   
-    const remoteDescription = new webrtc.RTCSessionDescription(body.sdp);
+    const remoteDescription = new webrtc.RTCSessionDescription(sdp);
     await peer.setRemoteDescription(remoteDescription);
   
     const answer = await peer.createAnswer();
@@ -150,15 +41,17 @@ io.on('connection', socket => {
     const payload = {
         sdp: peer.localDescription
     }
-    res.json(payload);
+    socket.emit(ACTIONS.ADD_BROADCASTER_PEER, payload);
   });
-  
-  app.post("/watch", async ({ body }, res) => {
+
+
+  socket.on(ACTIONS.WATCH, async ({sdp})=>{
     const peer = new webrtc.RTCPeerConnection(RTCConfig);
+    senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
+
     peer.onicecandidate = event => {
       if (event.candidate) {
-        console.log(event.candidate);
-
+        console.log(event.candidate)
         socket.emit(ACTIONS.SEND_ICE_CANDIDATE_STUDENT_STREAM, {
           iceCandidate: event.candidate,
         });
@@ -169,18 +62,18 @@ io.on('connection', socket => {
       peer.addIceCandidate(
         new webrtc.RTCIceCandidate(iceCandidate)
       );
-    })
-    const remoteDescription = new webrtc.RTCSessionDescription(body.sdp);
+    });
+
+    const remoteDescription = new webrtc.RTCSessionDescription(sdp);
     await peer.setRemoteDescription(remoteDescription);
-    senderStream.getTracks().forEach(track => peer.addTrack(track, senderStream));
     const answer = await peer.createAnswer();
     await peer.setLocalDescription(answer);
     const payload = {
         sdp: peer.localDescription
     }
-    res.json(payload);
-  });
 
+    socket.emit(ACTIONS.ADD_WATCHER_PEER, payload);
+  })
 });
 
 

@@ -24,12 +24,15 @@ const Home = () =>{
           peer.addIceCandidate(
             new RTCIceCandidate(iceCandidate)
           );
-        })
+        });
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
-        const { data } = await axios.post('/broadcast', {sdp: peer.localDescription});
-        const remoteDescription = new RTCSessionDescription(data.sdp);
-        peer.setRemoteDescription(remoteDescription).catch(e => console.log(e));
+        socket.emit(ACTIONS.BROADCAST, {sdp: peer.localDescription});
+
+        socket.on(ACTIONS.ADD_BROADCASTER_PEER, ({sdp}) => {
+          const remoteDescription = new RTCSessionDescription(sdp);
+          peer.setRemoteDescription(remoteDescription).catch(e => console.log(e));
+        })
     }
 
     return (
