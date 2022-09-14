@@ -1,4 +1,4 @@
-import React, {useRef, useEffect} from "react";
+import React, {useRef} from "react";
 import socket from './helpers/socket';
 import { ACTIONS, RTCConfig } from './constants';
 import axios from 'axios';
@@ -47,22 +47,3 @@ const Home = () =>{
   }
   
 export default Home;
-
-// function createPeer() {
-//     const peer = new RTCPeerConnection(RTCConfig);
-//     peer.onnegotiationneeded = () => handleNegotiationNeededEvent(peer);
-
-//     return peer;
-// }
-
-// async function handleNegotiationNeededEvent(peer) {
-//     const offer = await peer.createOffer();
-//     await peer.setLocalDescription(offer);
-//     const payload = {
-//         sdp: peer.localDescription
-//     };
-
-//     const { data } = await axios.post('/broadcast', payload);
-//     const desc = new RTCSessionDescription(data.sdp);
-//     peer.setRemoteDescription(desc).catch(e => console.log(e));
-// }

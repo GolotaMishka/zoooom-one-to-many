@@ -1,4 +1,4 @@
-import React, {useRef, useEffect} from "react";
+import React, {useRef} from "react";
 import socket from './helpers/socket';
 import { ACTIONS, RTCConfig } from './constants';
 import axios from 'axios';
@@ -9,11 +9,9 @@ const Room = () =>{
     const onWatch = async ()=>{
         const peer = new RTCPeerConnection(RTCConfig);
         peer.ontrack = (e)=> {
-          console.log("on track remote")
           let video = videoRef.current;
           video.srcObject = e.streams[0];
         };
-        peer.addTransceiver("video", { direction: "recvonly" });
         peer.onicecandidate = event => {
           if (event.candidate) {
             console.log("candidate: ",event.candidate), 
