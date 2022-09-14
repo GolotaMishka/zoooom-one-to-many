@@ -7,7 +7,7 @@ const options = {
   transports : ["websocket"]
 }
 
-// const socket = io('wss://zoooom-one-to-many.herokuapp.com', options);
-const socket = io('ws://localhost:4000', options);
+const socket = io('/', options);
+// const socket = io('ws://localhost:4000', options);
 
 export default socket;
